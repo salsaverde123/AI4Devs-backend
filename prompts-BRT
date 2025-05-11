@@ -1,0 +1,366 @@
+# Preparación de documentación y contexto para el agente.
+---
+# PROMPT #1 Mode:Ask
+```
+    # Rol
+    Eres un experto desarrollador backend
+
+    # Contexto
+    - Estamos continuando un proyecto de LTS para la emrpesa LTI
+    - Nos han pedido una serie de tareas que debemos completar en el proyecto.
+    - Para poder completar las tareas necesitamos primero generar la documentación del sistema, así facilitamos la comprensión del proyecto y las buenas prácticas utilizadas.
+    - El esquema de datos lo tenemos en @schema.prisma 
+
+    # Tarea
+    - Debes crear un archivo de documentación en una carpeta dentro de @backend en donde se indiquen las buenas prácticas utilizadas en el proyecto.
+    - Además debemos agregar otro archivo con el esquema de datos en mermaid y las relaciones detectadas de las entidades que forman el proyecto.
+
+    # Salida
+    - La documentación debe estar escrita en formato markdown.
+
+    # Consideraciones
+    - No escribas código todavía, vamos primero a comprobar paso a paso el plan para llevar a cabo esta tarea.
+```
+
+
+# PROMPT #2 Mode:Ask
+```
+Me parece bien la estructura de pasos que me has propuesto. Vamos ahora a desarrollar la primera parte del desarrollo de las mejores prácticas en @backend . No escribas código todavía dime antes qué es lo que vas a hacer.
+```
+
+# PROMPT #3 Mode:Agent
+```
+Ok, implementa ahora el archivo best-practices.md
+```
+
+# PROMPT #4 Mode:Agent
+```
+Procede con la creación del diagrama de datos y relaciones en el siguiente archivo
+```
+
+
+# Ejecución de la tarea
+---
+
+# PROMPT #5 New Chat - Mode:Ask
+```
+# Contexto
+- Nos han pedido que desarrollemos 2 endpoints nuevos en el proyecto.
+- Todo lo que hagamos debe cumplir la guía de datos y buenas prácticas ubicada en @docs 
+
+# Historia de usuario
+
+Tu misión en este ejercicio es crear dos nuevos endpoints que nos permitirán manipular la lista de candidatos de una aplicación en una interfaz tipo kanban.
+
+GET /positions/:id/candidates
+Este endpoint recogerá todos los candidatos en proceso para una determinada posición, es decir, todas las aplicaciones para un determinado positionID. Debe proporcionar la siguiente información básica:
+
+Nombre completo del candidato (de la tabla candidate).
+current_interview_step: en qué fase del proceso está el candidato (de la tabla application).
+La puntuación media del candidato. Recuerda que cada entrevist (interview) realizada por el candidato tiene un score
+PUT /candidates/:id/stage
+Este endpoint actualizará la etapa del candidato movido. Permite modificar la fase actual del proceso de entrevista en la que se encuentra un candidato específico.
+
+# Consideraciones
+- Vamos a ir paso a paso, primero implementaremos un endpoint y después de que lo confirmemos continuaremos con el otro.
+- No implementes código todavía. Desarrolla un plan de ejecución para poder validarlo antes de la implementación.
+```
+
+En este caso la respuesta es muy interesante ya que nos da los pasos muy bien detallados y específicos, perfectos prácticamente.
+# Respuesta
+
+Primero, revisaré la documentación para entender la estructura de datos y las buenas prácticas que debemos seguir.
+
+Read file: /home/brojas/TRABAJO/CursoAI4DEVs/session9-backend/backend/docs/database-schema.md
+
+Read file: /home/brojas/TRABAJO/CursoAI4DEVs/session9-backend/backend/docs/best-practices.md
+
+Search files...
+
+Ran tool
+
+Read file: backend/src/routes/candidateRoutes.ts
+
+Ran tool
+
+Read file: backend/src/presentation/controllers/candidateController.ts
+
+Ran tool
+
+Read file: backend/src/application/services/candidateService.ts
+
+Ran tool
+
+Read file: backend/src/domain/models/Application.ts
+
+Read file: backend/src/domain/models/Interview.ts
+
+Read file: backend/src/domain/models/Position.ts
+Basado en la información recopilada, presentaré un plan de ejecución para implementar los dos nuevos endpoints solicitados. Empezaré con el primer endpoint según lo solicitado.
+
+# Plan de ejecución para el endpoint GET /positions/:id/candidates
+
+## 1. Estructura del endpoint
+
+Siguiendo la arquitectura en capas del proyecto, necesitamos implementar:
+
+1. **Ruta**: Crear una nueva ruta en el directorio routes.
+2. **Controlador**: Desarrollar un controlador en la capa de presentación.
+3. **Servicio**: Implementar la lógica de negocio en la capa de aplicación.
+4. **Modelo/Consulta**: Utilizar los modelos existentes para obtener los datos necesarios.
+
+## 2. Pasos detallados
+
+### 2.1 Crear archivo de rutas (si no existe)
+
+Crear o modificar `positionRoutes.ts` en `backend/src/routes/`:
+
+```typescript
+import { Router } from 'express';
+import { getPositionCandidates } from '../presentation/controllers/positionController';
+
+const router = Router();
+
+router.get('/:id/candidates', getPositionCandidates);
+
+export default router;
+```
+
+### 2.2 Crear controlador
+
+Crear o modificar `positionController.ts` en `backend/src/presentation/controllers/`:
+
+```typescript
+import { Request, Response } from 'express';
+import { getPositionCandidatesList } from '../../application/services/positionService';
+
+export const getPositionCandidates = async (req: Request, res: Response) => {
+    try {
+        const positionId = parseInt(req.params.id);
+        if (isNaN(positionId)) {
+            return res.status(400).json({ error: 'Formato de ID inválido' });
+        }
+        
+        const candidates = await getPositionCandidatesList(positionId);
+        res.json(candidates);
+    } catch (error) {
+        if (error instanceof Error) {
+            res.status(400).json({ message: 'Error al obtener candidatos', error: error.message });
+        } else {
+            res.status(500).json({ message: 'Error interno del servidor' });
+        }
+    }
+};
+```
+
+### 2.3 Crear servicio
+
+Crear o modificar `positionService.ts` en `backend/src/application/services/`:
+
+```typescript
+import { PrismaClient } from '@prisma/client';
+import { Application } from '../../domain/models/Application';
+import { Candidate } from '../../domain/models/Candidate';
+import { Interview } from '../../domain/models/Interview';
+
+const prisma = new PrismaClient();
+
+export const getPositionCandidatesList = async (positionId: number) => {
+    try {
+        // Verificar si la posición existe
+        const position = await prisma.position.findUnique({
+            where: { id: positionId },
+        });
+        
+        if (!position) {
+            throw new Error('La posición no existe');
+        }
+        
+        // Obtener aplicaciones para esta posición con los datos necesarios
+        const applications = await prisma.application.findMany({
+            where: {
+                positionId: positionId
+            },
+            include: {
+                candidate: true,
+                interviews: true
+            }
+        });
+        
+        // Transformar los datos para el formato de respuesta
+        const candidatesList = await Promise.all(applications.map(async (app) => {
+            // Calcular puntuación media de las entrevistas
+            const averageScore = app.interviews.length > 0 
+                ? app.interviews.reduce((sum, interview) => sum + (interview.score || 0), 0) / app.interviews.length 
+                : 0;
+            
+            return {
+                id: app.candidate.id,
+                fullName: `${app.candidate.firstName} ${app.candidate.lastName}`,
+                current_interview_step: app.currentInterviewStep,
+                average_score: parseFloat(averageScore.toFixed(2))
+            };
+        }));
+        
+        return candidatesList;
+    } catch (error) {
+        throw error;
+    }
+};
+```
+
+### 2.4 Modificar archivo index.ts
+
+Añadir la nueva ruta al archivo `index.ts`:
+
+```typescript
+import positionRoutes from './routes/positionRoutes';
+
+// Después de los middleware existentes
+app.use('/positions', positionRoutes);
+```
+
+## 3. Plan de ejecución para el endpoint PUT /candidates/:id/stage
+
+### 3.1 Añadir ruta en candidateRoutes.ts
+
+Modificar `candidateRoutes.ts` en `backend/src/routes/`:
+
+```typescript
+import { Router } from 'express';
+import { addCandidate, getCandidateById, updateCandidateStage } from '../presentation/controllers/candidateController';
+
+const router = Router();
+
+// Rutas existentes
+router.post('/', async (req, res) => { /* ... */ });
+router.get('/:id', getCandidateById);
+
+// Nueva ruta
+router.put('/:id/stage', updateCandidateStage);
+
+export default router;
+```
+
+### 3.2 Añadir controlador
+
+Modificar `candidateController.ts` en `backend/src/presentation/controllers/`:
+
+```typescript
+import { Request, Response } from 'express';
+import { updateCandidateStageService } from '../../application/services/candidateService';
+
+// Funciones existentes
+
+export const updateCandidateStage = async (req: Request, res: Response) => {
+    try {
+        const candidateId = parseInt(req.params.id);
+        if (isNaN(candidateId)) {
+            return res.status(400).json({ error: 'Formato de ID inválido' });
+        }
+        
+        const { interviewStepId } = req.body;
+        if (!interviewStepId || typeof interviewStepId !== 'number') {
+            return res.status(400).json({ error: 'Se requiere un ID de etapa de entrevista válido' });
+        }
+        
+        const result = await updateCandidateStageService(candidateId, interviewStepId);
+        
+        res.json({ message: 'Etapa del candidato actualizada correctamente', data: result });
+    } catch (error) {
+        if (error instanceof Error) {
+            res.status(400).json({ message: 'Error al actualizar la etapa del candidato', error: error.message });
+        } else {
+            res.status(500).json({ message: 'Error interno del servidor' });
+        }
+    }
+};
+```
+
+### 3.3 Añadir servicio
+
+Modificar `candidateService.ts` en `backend/src/application/services/`:
+
+```typescript
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
+// Funciones existentes
+
+export const updateCandidateStageService = async (candidateId: number, interviewStepId: number) => {
+    try {
+        // Verificar si el candidato existe
+        const candidate = await prisma.candidate.findUnique({
+            where: { id: candidateId },
+        });
+        
+        if (!candidate) {
+            throw new Error('El candidato no existe');
+        }
+        
+        // Verificar si la etapa de entrevista existe
+        const interviewStep = await prisma.interviewStep.findUnique({
+            where: { id: interviewStepId },
+        });
+        
+        if (!interviewStep) {
+            throw new Error('La etapa de entrevista no existe');
+        }
+        
+        // Encontrar la aplicación actual del candidato
+        const application = await prisma.application.findFirst({
+            where: { candidateId: candidateId },
+        });
+        
+        if (!application) {
+            throw new Error('El candidato no tiene ninguna aplicación');
+        }
+        
+        // Actualizar la etapa actual de entrevista del candidato
+        const updatedApplication = await prisma.application.update({
+            where: { id: application.id },
+            data: { currentInterviewStep: interviewStepId },
+        });
+        
+        return updatedApplication;
+    } catch (error) {
+        throw error;
+    }
+};
+```
+
+## 4. Validaciones y manejo de errores
+
+En ambos endpoints se incluirán validaciones para:
+- Verificar que los IDs sean numéricos
+- Comprobar que los registros existan
+- Manejar errores de base de datos
+- Devolver mensajes de error claros
+
+## 5. Consideraciones adicionales
+
+1. **Seguridad**:
+   - Validar y sanitizar todas las entradas
+   - Proteger contra inyección SQL utilizando Prisma
+
+2. **Rendimiento**:
+   - Optimizar consultas con las relaciones adecuadas
+   - Usar índices para mejorar el rendimiento
+
+3. **Estándares de código**:
+   - Seguir los principios SOLID y Clean Architecture
+   - Mantener la estructura de capas del proyecto
+   - Seguir las convenciones de nombrado
+
+4. **Testing**:
+   - Implementar pruebas unitarias para cada función
+   - Implementar pruebas de integración para los endpoints
+
+¿Deseas que modifique alguna parte del plan o prefieres que proceda con la implementación del primer endpoint?
+
+
+# PROMPT #6
+```
+Ok vamos a implementar paso a paso este endpoint, yo te confirmaré para continuar con el siguiente una vez que termines.
+```
