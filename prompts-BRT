@@ -360,13 +360,31 @@ En ambos endpoints se incluirán validaciones para:
 ¿Deseas que modifique alguna parte del plan o prefieres que proceda con la implementación del primer endpoint?
 
 
-# PROMPT #6
+# PROMPT #6: Agent
 ```
 Ok vamos a implementar paso a paso este endpoint, yo te confirmaré para continuar con el siguiente una vez que termines.
 ```
 
 
-# PROMPT #7
+# PROMPT #7: Ask
 ```
 Vamos a continuar con el plan del siguiente endpoint que nos han encargado. No escribas código todavía, seguiremos el mismo proceso que en el endpoint anterior.
 ```
+
+# PROMPT #8: Agent
+```
+Perfecto. Impleméntalo en el código.
+```
+
+
+# PROMPT #9: Ask
+```
+Dame un ejemplo de petición put para usar correctamente este endpoint
+```
+Respuesta 
+```
+curl -X PUT http://localhost:3010/candidates/5/stage \
+     -H "Content-Type: application/json" \
+     -d '{"interviewStepId": 3}'
+```
+
