@@ -1,5 +1,9 @@
 import { Request, Response } from 'express';
-import { addCandidate, findCandidateById } from '../../application/services/candidateService';
+import { 
+    addCandidate, 
+    findCandidateById, 
+    updateCandidateStageService 
+} from '../../application/services/candidateService';
 
 export const addCandidateController = async (req: Request, res: Response) => {
     try {
@@ -28,6 +32,30 @@ export const getCandidateById = async (req: Request, res: Response) => {
         res.json(candidate);
     } catch (error) {
         res.status(500).json({ error: 'Internal Server Error' });
+    }
+};
+
+export const updateCandidateStage = async (req: Request, res: Response) => {
+    try {
+        const candidateId = parseInt(req.params.id);
+        if (isNaN(candidateId)) {
+            return res.status(400).json({ error: 'Formato de ID inválido' });
+        }
+        
+        const { interviewStepId } = req.body;
+        if (!interviewStepId || typeof interviewStepId !== 'number') {
+            return res.status(400).json({ error: 'Se requiere un ID de etapa de entrevista válido' });
+        }
+        
+        const result = await updateCandidateStageService(candidateId, interviewStepId);
+        
+        res.json({ message: 'Etapa del candidato actualizada correctamente', data: result });
+    } catch (error) {
+        if (error instanceof Error) {
+            res.status(400).json({ message: 'Error al actualizar la etapa del candidato', error: error.message });
+        } else {
+            res.status(500).json({ message: 'Error interno del servidor' });
+        }
     }
 };
 

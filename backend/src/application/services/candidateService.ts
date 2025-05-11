@@ -3,6 +3,11 @@ import { validateCandidateData } from '../validator';
 import { Education } from '../../domain/models/Education';
 import { WorkExperience } from '../../domain/models/WorkExperience';
 import { Resume } from '../../domain/models/Resume';
+import { PrismaClient } from '@prisma/client';
+import { Application } from '../../domain/models/Application';
+import { InterviewStep } from '../../domain/models/InterviewStep';
+
+const prisma = new PrismaClient();
 
 export const addCandidate = async (candidateData: any) => {
     try {
@@ -61,5 +66,62 @@ export const findCandidateById = async (id: number): Promise<Candidate | null> =
     } catch (error) {
         console.error('Error al buscar el candidato:', error);
         throw new Error('Error al recuperar el candidato');
+    }
+};
+
+export const updateCandidateStageService = async (candidateId: number, interviewStepId: number) => {
+    try {
+        // Verificar si el candidato existe
+        const candidate = await Candidate.findOne(candidateId);
+        
+        if (!candidate) {
+            throw new Error('El candidato no existe');
+        }
+        
+        // Verificar si la etapa de entrevista existe
+        const interviewStep = await InterviewStep.findOne(interviewStepId);
+        
+        if (!interviewStep) {
+            throw new Error('La etapa de entrevista no existe');
+        }
+        
+        // Encontrar la aplicación actual del candidato
+        const applications = await prisma.application.findMany({
+            where: { candidateId: candidateId },
+            orderBy: { applicationDate: 'desc' }
+        });
+        
+        if (!applications || applications.length === 0) {
+            throw new Error('El candidato no tiene ninguna aplicación');
+        }
+        
+        // Actualizar la etapa actual de entrevista del candidato (tomamos la aplicación más reciente)
+        const application = applications[0];
+        
+        // Actualizar usando Prisma directamente para obtener datos relacionados
+        const updatedApplication = await prisma.application.update({
+            where: { id: application.id },
+            data: { currentInterviewStep: interviewStepId },
+            include: {
+                candidate: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true
+                    }
+                },
+                position: {
+                    select: {
+                        id: true,
+                        title: true
+                    }
+                }
+            }
+        });
+        
+        return updatedApplication;
+    } catch (error) {
+        console.error('Error al actualizar la etapa del candidato:', error);
+        throw error;
     }
 };
